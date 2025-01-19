@@ -1,0 +1,60 @@
+O<axolito-tool-change> SUB
+
+
+#<_ProbeX> =           0.5     ( machine X coordinate of switch/touch-off plate )
+#<_ProbeY> =           298     ( machine Y coordinate of switch/touch-off plate )
+#<_ToolZRef> =      -63.92     ( machine Z coord where reference tool touches probe )
+#<_ProbeFastZ> =       -30     ( machine Z coord to move to before starting probe, longest tool should not touch switch at this Z )
+#<_ProbeMinZ> =        -65     ( machine Z coord to stop probe, shortest tool must touch switch at this Z, must be > min Z )
+#<_ProbeFastFeed> =   1200     ( feed rate for moving to _ProbeFastZ )
+#<_ProbeFeed1> =       500     ( feed rate for touching switch/touch-off plate first time )
+#<_ProbeFeed2> =        30     ( feed rate for touching switch/touch-off plate second time )
+#<_ToolChangeX> =     92.5     ( machine X coordinate to pause at for manual tool changing )
+#<_ToolChangeY> =       10     ( machine Y coordinate to pause at for manual tool changing )
+
+
+M102	                                         ( Arret aspirateur )
+
+O100 IF [ #<_task> EQ 1 ]	                     ( test si simulation )
+
+G30.1                                          ( save current position in #5181-#5183... )
+G53 G0 Z-0.5
+
+O200 IF [ #<_current_tool> NE #<_selected_tool> ]
+  G53 G0 X[#<_ToolChangeX>] Y[#<_ToolChangeY>]   ( Moves to desired potion for manual tool change )
+  M6                                             ( do the normal M6 stuff )
+O200 ENDIF
+
+M70                                            ( save current modal state )
+
+M9                                             ( turn off coolant, will be restored on return if it was on )
+M5                                             ( turn off spindle, cannot be on during the probe )
+(G49)                                            ( clear tool length compensation )
+G90                                            ( use absolute positioning here )
+G94                                            ( use feedrate in units/min )
+
+
+G53 G0 X[#<_ProbeX>] Y[#<_ProbeY>]             ( to high place directly over switch )
+G53 G1 F[#<_ProbeFastFeed>] Z[#<_ProbeFastZ>]  ( move tool closer to switch -- we shouldn't hit it )
+G54 G1 F[#<_ProbeFeed1>] G91                   ( use relative positioning )
+G38.2 Z[#<_ProbeMinZ> - #<_ProbeFastZ>] F[#<_ProbeFeed1>]     ( trip switch slowly )
+G0 Z2                                          ( go up slightly )
+G38.2 Z[-3] F[#<_ProbeFeed2>]                  ( trip switch very slowly )
+G90                                            ( use absolute positioning )
+
+(#<_ToolZ> = #5063)                            ( save new tool length )
+#<_ToolZ> = #<_abs_z>
+(G43.1 Z[ - #<_ToolZ> + #<_ToolZRef>])            ( set new tool length Z offset, we do this now to show operator even though it has to be set again after M72 )
+G10 L1 P[#<_current_tool>] Z[ - #<_ToolZ> + #<_ToolZRef>]  ( set offset in tool table )
+
+G53 G0 Z-0.5                                   ( return to high travel level )
+G53 G0 X[#5181] Y[#5182]                       ( return to where we were in X Y)
+
+M72                                            ( restore modal state )
+G43                                            ( use tool table offset )
+
+
+O100 ENDIF
+
+O<axolito-tool-change> ENDSUB
+M2

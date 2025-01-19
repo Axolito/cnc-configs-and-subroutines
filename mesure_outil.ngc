@@ -1,0 +1,6 @@
+O<mesure_outil> sub
+
+T#<_current_tool> M6
+
+O<mesure_outil> endsub
+M2
